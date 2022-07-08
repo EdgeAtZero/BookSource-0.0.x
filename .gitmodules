@@ -1,0 +1,3 @@
+[submodule "BookSource-api"]
+	path = BookSource-api
+	url = https://github.com/EdgeAtZero/BookSource-api.git
