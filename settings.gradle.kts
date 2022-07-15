@@ -1,9 +1,10 @@
+import org.gradle.kotlin.dsl.support.listFilesOrdered
+
 pluginManagement {
     repositories {
         google()
         gradlePluginPortal()
         mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 
     plugins {
@@ -12,4 +13,12 @@ pluginManagement {
     }
 }
 
-rootProject.name = "Book Source"
+rootProject.name = "BookSource"
+
+include(":BookSource-api")
+
+rootDir.resolve("src").listFilesOrdered { it.isDirectory }.forEach {
+    val project = ":${it.name}"
+    include(project)
+    project(project).projectDir = it
+}
