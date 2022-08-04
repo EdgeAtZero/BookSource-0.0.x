@@ -1,17 +1,11 @@
 package io.github.edgeatzero.booksource.dmzj.models
 
 
-import io.github.edgeatzero.booksource.dmzj.DmzjBookSource
-import io.github.edgeatzero.booksource.models.Book
-import io.github.edgeatzero.booksource.models.SBook
-import io.github.edgeatzero.booksource.models.SChapter
-import io.github.edgeatzero.booksource.models.STag
-import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Fetch2Response(
+data class FetchJsonResponse(
     @SerialName("data")
     val `data`: Data,
     @SerialName("msg")

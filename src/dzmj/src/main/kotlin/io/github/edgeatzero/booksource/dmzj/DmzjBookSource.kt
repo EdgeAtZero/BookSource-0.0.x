@@ -4,11 +4,15 @@ package io.github.edgeatzero.booksource.dmzj
 
 import io.github.edgeatzero.booksource.dmzj.models.*
 import io.github.edgeatzero.booksource.dmzj.utils.RSA
-import io.github.edgeatzero.booksource.extends.NetworkBookSource
+import io.github.edgeatzero.booksource.dmzj.utils.parseContents
+import io.github.edgeatzero.booksource.dmzj.utils.parseFetchBook
+import io.github.edgeatzero.booksource.dmzj.utils.parseFetchChapter
+import io.github.edgeatzero.booksource.exceptions.ParsedException
+import io.github.edgeatzero.booksource.exceptions.UnsupportedMethodIndexException
+import io.github.edgeatzero.booksource.extends.MultipleBookSource
 import io.github.edgeatzero.booksource.functions.SearchFunction
 import io.github.edgeatzero.booksource.models.*
-import io.github.edgeatzero.booksource.preferences.HintPreference
-import io.github.edgeatzero.booksource.utils.PagingController
+import io.github.edgeatzero.booksource.preferences.SelectPreference
 import io.ktor.client.*
 import io.ktor.client.engine.*
 import io.ktor.client.plugins.*
@@ -16,14 +20,13 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.util.*
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.util.*
 
-class DmzjBookSource : NetworkBookSource(), SearchFunction {
+class DmzjBookSource : MultipleBookSource(), SearchFunction {
     internal companion object {
         private val JSON = Json {
             ignoreUnknownKeys = true
@@ -31,17 +34,94 @@ class DmzjBookSource : NetworkBookSource(), SearchFunction {
         }
         private val PROTOBUF = ProtoBuf
 
-        const val KEY_KEYWORDS = "keywords"
+        private val ARRAY_CLASSIFY = mapOf(
+            "全部" to "",
+            "冒险" to "4",
+            "百合" to "3243",
+            "生活" to "3242",
+            "四格" to "17",
+            "伪娘" to "3244",
+            "悬疑" to "3245",
+            "后宫" to "3249",
+            "热血" to "3248",
+            "耽美" to "3246",
+            "其他" to "16",
+            "恐怖" to "14",
+            "科幻" to "7",
+            "格斗" to "6",
+            "欢乐向" to "5",
+            "爱情" to "8",
+            "侦探" to "9",
+            "校园" to "13",
+            "神鬼" to "12",
+            "魔法" to "11",
+            "竞技" to "10",
+            "历史" to "3250",
+            "战争" to "3251",
+            "魔幻" to "5806",
+            "扶她" to "5345",
+            "东方" to "5077",
+            "奇幻" to "5848",
+            "轻小说" to "6316",
+            "仙侠" to "7900",
+            "搞笑" to "7568",
+            "颜艺" to "6437",
+            "性转换" to "4518",
+            "高清单行" to "4459",
+            "治愈" to "3254",
+            "宅系" to "3253",
+            "萌系" to "3252",
+            "励志" to "3255",
+            "节操" to "6219",
+            "职场" to "3328",
+            "西方魔幻" to "3365",
+            "音乐舞蹈" to "3326",
+            "机战" to "3325"
+        )
+        private val ARRAY_STATUS = mapOf(
+            "全部" to "",
+            "连载" to "2309",
+            "完结" to "2310"
+        )
+        private val ARRAY_REiGON = mapOf(
+            "全部" to "",
+            "日本" to "2304",
+            "韩国" to "2305",
+            "欧美" to "2306",
+            "港台" to "2307",
+            "内地" to "2308",
+            "其他" to "8453"
+        )
+        private val ARRAY_SORT = mapOf(
+            "人气" to "0",
+            "更新" to "1"
+        )
+        private val ARRAY_READER = mapOf(
+            "全部" to "",
+            "少年" to "3262",
+            "少女" to "3263",
+            "青年" to "3264"
+        )
 
-        const val BASE_URL = "https://m.dmzj.com"
-        const val API = "https://api.dmzj.com"
-        const val API_V3 = "https://v3api.dmzj.com"
-        const val API_V4 = "https://nnv4api.muwai.com" // https://v4api.dmzj1.com
-        const val API_PAGE_LIST_OLD = "https://api.m.dmzj.com"
-        const val API_PAGE_LIST_OLD_WEBVIEW = "https://m.dmzj.com/chapinfo"
-        const val CDN_IMAGE = "https://images.dmzj.com"
-        const val CDN_IMAGE_SMALL = "https://imgsmall.dmzj.com"
+        const val KEY_KEYWORDS = "keywords"
+        const val KEY_INDEX = "index"
+        const val KEY_LAST_INDEX = "last_index"
+        const val KEY_CLASSIFY = "classify"
+        const val KEY_STATUS = "status"
+        const val KEY_REGION = "region"
+        const val KEY_SORT = "sort"
+        const val KEY_READER = "reader"
+
+        const val BASE_HOST = "m.dmzj.com"
+        const val API_HOST = "api.dmzj.com"
+        const val API_V4_HOST = "nnv4api.muwai.com"
+        const val V3_API_HOST = "v3api.dmzj.com"
+        const val SEARCH_HOST = "s.acg.dmzj.com"
     }
+
+    override val maxFetchMethodIndex = 1
+    override val maxContentsMethodIndex = 1
+    override val maxChaptersMethodIndex = 0
 
     override val id = "dmzj"
     override val lang: Locale = Locale.SIMPLIFIED_CHINESE
@@ -68,70 +148,141 @@ class DmzjBookSource : NetworkBookSource(), SearchFunction {
 
     override fun HttpRequestBuilder.processImageURL(url: String) = Unit
 
-    private suspend fun detail1(id: String): Fetch1Response = client
-        .get("$API_V4/comic/detail/$id?channel=android,version=3.0.0,timestamp=${System.currentTimeMillis() / 1000}")
+
+    override suspend fun fetch(id: String, method: Int): Book = when (method) {
+        0 -> fetchProto(id).let(::parseFetchBook)
+        1 -> fetchJson(id).let(::parseFetchBook)
+        else -> throw UnsupportedMethodIndexException(method)
+    }
+
+    private suspend fun fetchProto(id: String): FetchProtoResponse = client
+        .get {
+            url(scheme = URLProtocol.HTTPS.name, host = API_V4_HOST) {
+                path("comic", "detail", id)
+                parameter("channel", "android")
+                parameter("version", ".0.0")
+                parameter("timestamp", System.currentTimeMillis() / 1000)
+            }
+        }
         .bodyAsText()
+        .also { if (it.length < 200 || it.isBlank()) throw ParsedException(message = "maybe no such book for $id, please check") }
         .let(RSA::decryptProtobufData)
         .let { PROTOBUF.decodeFromByteArray(it) }
 
-    private suspend fun detail2(id: String): Fetch2Response = client
-        .get("$API/dynamic/comicinfo/$id.json")
+    private suspend fun fetchJson(id: String): FetchJsonResponse = client
+        .get {
+            url(scheme = URLProtocol.HTTPS.name, host = API_HOST) {
+                path("dynamic", "comicinfo", "$id.json")
+            }
+        }
         .bodyAsText()
+        .also { if (it.isBlank()) throw ParsedException(message = "maybe no such book for $id, please check") }
         .let { JSON.decodeFromString(it) }
 
-    override suspend fun fetch(id: String): Book = runCatching {
-        detail1(id).let(::parseFetchBook)
-    }.getOrElse {
-        detail2(id).let(::parseFetchBook)
+    override suspend fun chapters(book: Book, method: Int): List<Chapter> = when (method) {
+        0 -> fetchProto(book.id).let(::parseFetchChapter)
+        1 -> fetchJson(book.id).let(::parseFetchChapter)
+        else -> throw UnsupportedMethodIndexException(method)
     }
 
-    override suspend fun chapters(book: Book): List<Chapter> = runCatching {
-        detail1(id).let(::parseFetchChapter)
-    }.getOrElse {
-        detail2(id).let(::parseFetchChapter)
-    }
+    override suspend fun contents(book: Book, chapter: Chapter, method: Int): Contents = when (method) {
+        /* webpage api */
+        0 -> client
+            .get {
+                url(scheme = URLProtocol.HTTP.name, host = BASE_HOST) {
+                    path("chapinfo", book.id, "${chapter.id}.html")
+                }
+            }.bodyAsText()
+            .let { JSON.decodeFromString<ContentsResponse>(it) }
+            .let(::parseContents)
 
-    override suspend fun contents(chapter: Chapter): Contents {
-        TODO("Not yet implemented")
+        else -> throw UnsupportedMethodIndexException(method)
     }
 
     override val searchCreator by lazy { SearchCreator() }
-    override val searchPreferences = listOf(HintPreference("Test"))
-
-    override suspend fun search(configs: Map<String, Any>): PagingController<List<Book>> =
-        object : PagingController<List<Book>>() {
-            private val page = 0
-            override suspend fun fetch(): List<Book> {
-                return client.get {
-                    url(scheme = "http", host = "s.acg.dmzj.com", path = "/comicsum/search.php") {
-                        parameter("s", configs[KEY_KEYWORDS] as String)
-                    }
-                }.bodyAsText().let { searchParse(it) }
+    override val searchPreferences = listOf(
+        SelectPreference(
+            label = "分类",
+            selections = ARRAY_CLASSIFY.keys.toList(),
+            single = true,
+            action = { input, output ->
+                output[KEY_CLASSIFY] = input.singleOrNull()?.let { ARRAY_CLASSIFY[it] } ?: ""
             }
-
-            override fun nextPage() {
-                TODO("Not yet implemented")
+        ),
+        SelectPreference(
+            label = "连载状态",
+            selections = ARRAY_STATUS.keys.toList(),
+            single = true,
+            action = { input, output ->
+                output[KEY_STATUS] = input.singleOrNull()?.let { ARRAY_STATUS[it] } ?: ""
             }
-
-            override fun previousPage() {
-                TODO("Not yet implemented")
+        ),
+        SelectPreference(
+            label = "地区",
+            selections = ARRAY_REiGON.keys.toList(),
+            single = true,
+            action = { input, output ->
+                output[KEY_REGION] = input.singleOrNull()?.let { ARRAY_REiGON[it] } ?: ""
             }
+        ),
+        SelectPreference(
+            label = "排序",
+            selections = ARRAY_SORT.keys.toList(),
+            single = true,
+            action = { input, output ->
+                output[KEY_SORT] = input.singleOrNull()?.let { ARRAY_SORT[it] } ?: ""
+            }
+        ),
+        SelectPreference(
+            label = "读者",
+            selections = ARRAY_READER.keys.toList(),
+            single = true,
+            action = { input, output ->
+                output[KEY_READER] = input.singleOrNull()?.let { ARRAY_READER[it] } ?: ""
+            }
+        )
+    )
 
-        }
+    override suspend fun search(config: Map<String, String>): Pair<List<Book>, Map<String, String>?> =
+        if (config.contains(KEY_KEYWORDS)) client
+            .get {
+                url(scheme = URLProtocol.HTTP.name, host = SEARCH_HOST) {
+                    path("comicsum", "search.php")
+                    parameter("s", config[KEY_KEYWORDS])
+                }
+            }
+            .bodyAsText()
+            .let(::searchParse) to null
+        else client
+            .get {
+                url(scheme = URLProtocol.HTTPS.name, host = V3_API_HOST) {
+                    path(
+                        "classify",
+                        listOf(
+                            config[KEY_KEYWORDS],
+                            config[KEY_CLASSIFY],
+                            config[KEY_STATUS],
+                            config[KEY_REGION],
+                            config[KEY_READER]
+                        )
+                            .filter { !it.isNullOrBlank() }
+                            .joinToString(separator = "-")
+                            .ifBlank { "0" },
+                        config[KEY_SORT] ?: "0",
+                        "${config[KEY_INDEX] ?: "0"}.json"
+                    )
+                }
+            }
+            .bodyAsText()
+            .let { searchParse(it) } to null
 
-    private fun searchParse(response: String): List<Book> {
-        return if (response.contains("g_search_data")) {
-            simpleSearchJsonParse(response.substringAfter('=').trim().removeSuffix(";"))
-        } else {
-            TODO()
-        }
-    }
-
-    private fun simpleSearchJsonParse(response: String): List<Book> {
-        return JSON.decodeFromString<SearchResponse>("""{"items":$response}""")
-            .items
-            .map(::parseFetchBook)
-    }
+    private fun searchParse(response: String): List<Book> =
+        if (response.contains("g_search_data"))
+            JSON.decodeFromString<SearchValResponse>(response.substringAfter('=').trim().removeSuffix(";"))
+                .map(::parseFetchBook)
+        else
+            JSON.decodeFromString<SearchJsonResponse>(response)
+                .map(::parseFetchBook)
 
     inner class SearchCreator internal constructor() : SearchFunction.ConfigCreator {
 
@@ -141,17 +292,35 @@ class DmzjBookSource : NetworkBookSource(), SearchFunction {
             order: SearchOrder?,
             author: String?,
             uploader: String?
-        ): Map<String, Any> {
-            requireNotNull(keywords) { "keywords should not be null" }
-            return mapOf(KEY_KEYWORDS to keywords)
+        ): Map<String, String> = if (keywords != null) {
+            check(tags == null && order == null && author == null && uploader == null) {
+                "when input keywords, the others will be disable"
+            }
+            mapOf(KEY_KEYWORDS to keywords)
+        } else {
+            mapOf(
+                KEY_SORT to when (order) {
+                    SSearchOrder.Hottest -> "0"
+                    else -> "1"
+                }
+            )
         }
 
+        override fun setIndex(configs: MutableMap<String, String>, index: Int) {
+            configs[KEY_INDEX] = index.toString()
+        }
+
+        override fun getIndex(configs: Map<String, String>): Int = configs[KEY_INDEX]?.toInt() ?: 0
+
+        override fun getLastIndex(configs: Map<String, String>): Int = configs[KEY_LAST_INDEX]?.toInt() ?: 0
+
         override val isKeywordsSupported = true
-        override val isTagsSupported = true
-        override val isSearchOrderSupported = true
-        override val supportedSearchOrders = listOf(SSearchOrder.Hottest)
-        override val isAuthorSupported = true
+        override val isTagsSupported = false
+        override val isSearchOrderSupported = false
+        override val isAuthorSupported = false
         override val isUploaderSupported = false
+        override val isPageIndexSupported = true
+        override val supportedSearchOrders = listOf(SSearchOrder.Hottest, SSearchOrder.Newest)
 
     }
 

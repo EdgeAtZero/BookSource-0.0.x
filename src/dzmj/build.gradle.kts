@@ -16,6 +16,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.3.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-properties:1.3.3")
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-client-okhttp:2.0.3")
 }
