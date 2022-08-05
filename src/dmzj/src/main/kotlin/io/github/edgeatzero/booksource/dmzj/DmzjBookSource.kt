@@ -1,5 +1,3 @@
-@file:Suppress("OPT_IN_USAGE")
-
 package io.github.edgeatzero.booksource.dmzj
 
 import io.github.edgeatzero.booksource.dmzj.models.*
@@ -20,12 +18,14 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.util.*
 
+@ExperimentalSerializationApi
 class DmzjBookSource : MultipleBookSource(), SearchFunction {
     internal companion object {
         private val JSON = Json {
