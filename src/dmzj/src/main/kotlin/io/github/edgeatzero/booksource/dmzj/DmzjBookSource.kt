@@ -86,7 +86,7 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             "连载" to "2309",
             "完结" to "2310"
         )
-        private val ARRAY_REiGON = mapOf(
+        private val ARRAY_REIGON = mapOf(
             "全部" to "",
             "日本" to "2304",
             "韩国" to "2305",
@@ -130,6 +130,8 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
 
     override val id = "dmzj"
     override val lang: Locale = Locale.SIMPLIFIED_CHINESE
+    override val version = 11
+    override val versionName = "beta 0.0.11"
 
     override fun install() = Unit
 
@@ -204,93 +206,30 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
         else -> throw UnsupportedMethodIndexException(method)
     }
 
-    override val searchCreator by lazy { SearchCreator() }
-    override val searchPreferences = listOf<Preference>(
+    private fun selectPreference(label: String, key: String, mapper: Map<String, String>, default: String? = null) =
         SelectPreference(
-            id = KEY_CLASSIFY,
-            label = "分类",
-            selections = ARRAY_CLASSIFY.keys.toList(),
+            id = key,
+            label = label,
+            selections = mapper.keys.toList(),
             action = PreferenceAction(
                 saver = { input, present ->
-                    val selected = present.selected ?: ARRAY_CLASSIFY.keys.first()
-                    val value = ARRAY_CLASSIFY.getValue(selected)
-                    input[KEY_CLASSIFY] = value
+                    val selected = present.selected ?: mapper.keys.first { mapper[it] == default }
+                    input[key] = mapper.getValue(selected)
                 },
                 restorer = { input, previous ->
-                    val selected = input[KEY_CLASSIFY] ?: ""
-                    val key = ARRAY_CLASSIFY.keys.first { key -> ARRAY_CLASSIFY[key] == selected }
-                    previous.copy(selected = key)
-                }
-            )
-        ),
-        SelectPreference(
-            id = KEY_STATUS,
-            label = "连载状态",
-            selections = ARRAY_STATUS.keys.toList(),
-            action = PreferenceAction(
-                saver = { input, present ->
-                    val selected = present.selected ?: ARRAY_STATUS.keys.first()
-                    val value = ARRAY_STATUS.getValue(selected)
-                    input[KEY_STATUS] = value
-                },
-                restorer = { input, previous ->
-                    val selected = input[KEY_STATUS] ?: ""
-                    val key = ARRAY_STATUS.keys.first { key -> ARRAY_STATUS[key] == selected }
-                    previous.copy(selected = key)
-                }
-            )
-        ),
-        SelectPreference(
-            id = KEY_REGION,
-            label = "地区",
-            selections = ARRAY_REiGON.keys.toList(),
-            action = PreferenceAction(
-                saver = { input, present ->
-                    val selected = present.selected ?: ARRAY_REiGON.keys.first()
-                    val value = ARRAY_REiGON.getValue(selected)
-                    input[KEY_REGION] = value
-                },
-                restorer = { input, previous ->
-                    val selected = input[KEY_REGION] ?: ""
-                    val key = ARRAY_REiGON.keys.first { key -> ARRAY_REiGON[key] == selected }
-                    previous.copy(selected = key)
-                }
-            )
-        ),
-        SelectPreference(
-            id = KEY_SORT,
-            label = "排序",
-            selections = ARRAY_SORT.keys.toList(),
-            action = PreferenceAction(
-                saver = { input, present ->
-                    val selected = present.selected ?: ARRAY_SORT.keys.first()
-                    val value = ARRAY_SORT.getValue(selected)
-                    input[KEY_SORT] = value
-                },
-                restorer = { input, previous ->
-                    val selected = input[KEY_SORT] ?: ""
-                    val key = ARRAY_SORT.keys.first { key -> ARRAY_SORT[key] == selected }
-                    previous.copy(selected = key)
-                }
-            )
-        ),
-        SelectPreference(
-            id = KEY_READER,
-            label = "读者",
-            selections = ARRAY_READER.keys.toList(),
-            action = PreferenceAction(
-                saver = { input, present ->
-                    val selected = present.selected ?: ARRAY_READER.keys.first()
-                    val value = ARRAY_READER.getValue(selected)
-                    input[KEY_READER] = value
-                },
-                restorer = { input, previous ->
-                    val selected = input[KEY_READER] ?: ""
-                    val key = ARRAY_READER.keys.first { key -> ARRAY_READER[key] == selected }
-                    previous.copy(selected = key)
+                    val selected = input[key] ?: default
+                    previous.copy(selected = mapper.keys.first { mapper[it] == selected })
                 }
             )
         )
+
+    override val searchCreator by lazy { SearchCreator() }
+    override val searchPreferences = listOf<Preference>(
+        selectPreference(label = "分类", key = KEY_CLASSIFY, mapper = ARRAY_CLASSIFY, default = ""),
+        selectPreference(label = "连载状态", key = KEY_STATUS, mapper = ARRAY_STATUS, default = ""),
+        selectPreference(label = "地区", key = KEY_REGION, mapper = ARRAY_REIGON, default = ""),
+        selectPreference(label = "排序", key = KEY_SORT, mapper = ARRAY_SORT, default = "0"),
+        selectPreference(label = "读者", key = KEY_READER, mapper = ARRAY_READER, default = "")
     )
 
     override suspend fun search(config: Map<String, String>): Pair<List<Book>, Map<String, String>?> =
@@ -307,7 +246,7 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             .get {
                 url(scheme = URLProtocol.HTTPS.name, host = V3_API_HOST) {
                     path(
-                        "classify",
+                        KEY_CLASSIFY,
                         listOf(
                             config[KEY_KEYWORDS],
                             config[KEY_CLASSIFY],
@@ -334,25 +273,30 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             JSON.decodeFromString<SearchJsonResponse>(response)
                 .map(::parseFetchBook)
 
-    inner class SearchCreator internal constructor() : SearchFunction.ConfigCreator {
+    inner class SearchCreator internal constructor() : SearchFunction.Configurer {
 
-        override fun buildConfig(
+        override fun config(
+            output: MutableMap<String, String>,
             keywords: String?,
             tags: List<TagSearched>?,
             sort: SearchSort?,
             author: String?,
             uploader: String?
-        ): Map<String, String> {
+        ) {
             require(tags == null && author == null && uploader == null)
-            return when {
-                keywords != null && sort == null -> mapOf(KEY_KEYWORDS to keywords)
-                keywords == null && sort != null -> mapOf(
-                    KEY_SORT to when (sort) {
-                        SSearchSort.Hottest -> "0"
-                        SSearchSort.Newest -> "1"
-                        else -> throw IllegalArgumentException("unsupported for $sort")
-                    }
-                )
+            val isNotIncludeCustom = output.isEmpty()
+                    || output[KEY_CLASSIFY].isNullOrBlank()
+                    && output[KEY_STATUS].isNullOrBlank()
+                    && output[KEY_REGION].isNullOrBlank()
+                    && output[KEY_SORT].isNullOrBlank()
+                    && output[KEY_READER].isNullOrBlank()
+            when {
+                isNotIncludeCustom && keywords != null && sort == null -> output[KEY_KEYWORDS] = keywords
+                !isNotIncludeCustom && keywords == null && sort != null -> output[KEY_SORT] = when (sort) {
+                    SSearchSort.Hottest -> "0"
+                    SSearchSort.Newest -> "1"
+                    else -> throw IllegalArgumentException("unsupported for $sort")
+                }
 
                 else -> throw IllegalArgumentException("when input keywords, the others will be disable")
             }
