@@ -11,7 +11,6 @@ import io.github.edgeatzero.booksource.exceptions.UnsupportedMethodIndexExceptio
 import io.github.edgeatzero.booksource.extends.MultipleBookSource
 import io.github.edgeatzero.booksource.functions.SearchFunction
 import io.github.edgeatzero.booksource.models.*
-import io.github.edgeatzero.booksource.preferences.MultipleSelectPreference
 import io.github.edgeatzero.booksource.preferences.Preference
 import io.github.edgeatzero.booksource.preferences.PreferenceAction
 import io.github.edgeatzero.booksource.preferences.SelectPreference
@@ -207,16 +206,20 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
 
     override val searchCreator by lazy { SearchCreator() }
     override val searchPreferences = listOf<Preference>(
-        MultipleSelectPreference(
+        SelectPreference(
             id = KEY_CLASSIFY,
             label = "分类",
             selections = ARRAY_CLASSIFY.keys.toList(),
             action = PreferenceAction(
-                saver = { input, previous ->
-                    previous.selected?.let { input[KEY_CLASSIFY] = it.joinToString(separator = CHAR_BAR, prefix = CHAR_BAR, postfix = CHAR_BAR) }
+                saver = { input, present ->
+                    val selected = present.selected ?: ARRAY_CLASSIFY.keys.first()
+                    val value = ARRAY_CLASSIFY.getValue(selected)
+                    input[KEY_CLASSIFY] = value
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_CLASSIFY]?.split(CHAR_BAR))
+                    val selected = input[KEY_CLASSIFY] ?: ""
+                    val key = ARRAY_CLASSIFY.keys.first { key -> ARRAY_CLASSIFY[key] == selected }
+                    previous.copy(selected = key)
                 }
             )
         ),
@@ -225,11 +228,15 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             label = "连载状态",
             selections = ARRAY_STATUS.keys.toList(),
             action = PreferenceAction(
-                saver = { input, previous ->
-                    previous.selected?.let { input[KEY_STATUS] = it }
+                saver = { input, present ->
+                    val selected = present.selected ?: ARRAY_STATUS.keys.first()
+                    val value = ARRAY_STATUS.getValue(selected)
+                    input[KEY_STATUS] = value
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_STATUS])
+                    val selected = input[KEY_STATUS] ?: ""
+                    val key = ARRAY_STATUS.keys.first { key -> ARRAY_STATUS[key] == selected }
+                    previous.copy(selected = key)
                 }
             )
         ),
@@ -238,11 +245,15 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             label = "地区",
             selections = ARRAY_REiGON.keys.toList(),
             action = PreferenceAction(
-                saver = { input, previous ->
-                    previous.selected?.let { input[KEY_REGION] = it }
+                saver = { input, present ->
+                    val selected = present.selected ?: ARRAY_REiGON.keys.first()
+                    val value = ARRAY_REiGON.getValue(selected)
+                    input[KEY_REGION] = value
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_REGION])
+                    val selected = input[KEY_REGION] ?: ""
+                    val key = ARRAY_REiGON.keys.first { key -> ARRAY_REiGON[key] == selected }
+                    previous.copy(selected = key)
                 }
             )
         ),
@@ -251,11 +262,15 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             label = "排序",
             selections = ARRAY_SORT.keys.toList(),
             action = PreferenceAction(
-                saver = { input, previous ->
-                    previous.selected?.let { input[KEY_SORT] = it }
+                saver = { input, present ->
+                    val selected = present.selected ?: ARRAY_SORT.keys.first()
+                    val value = ARRAY_SORT.getValue(selected)
+                    input[KEY_SORT] = value
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_SORT])
+                    val selected = input[KEY_SORT] ?: ""
+                    val key = ARRAY_SORT.keys.first { key -> ARRAY_SORT[key] == selected }
+                    previous.copy(selected = key)
                 }
             )
         ),
@@ -264,11 +279,15 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             label = "读者",
             selections = ARRAY_READER.keys.toList(),
             action = PreferenceAction(
-                saver = { input, previous ->
-                    previous.selected?.let { input[KEY_READER] = it }
+                saver = { input, present ->
+                    val selected = present.selected ?: ARRAY_READER.keys.first()
+                    val value = ARRAY_READER.getValue(selected)
+                    input[KEY_READER] = value
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_READER])
+                    val selected = input[KEY_READER] ?: ""
+                    val key = ARRAY_READER.keys.first { key -> ARRAY_READER[key] == selected }
+                    previous.copy(selected = key)
                 }
             )
         )
