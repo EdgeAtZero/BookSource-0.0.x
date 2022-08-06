@@ -1,5 +1,6 @@
 package io.github.edgeatzero.booksource.dmzj
 
+import io.github.edgeatzero.booksource.ExperimentalBookSourceApi
 import io.github.edgeatzero.booksource.dmzj.models.*
 import io.github.edgeatzero.booksource.dmzj.utils.RSA
 import io.github.edgeatzero.booksource.dmzj.utils.parseContents
@@ -10,6 +11,7 @@ import io.github.edgeatzero.booksource.exceptions.UnsupportedMethodIndexExceptio
 import io.github.edgeatzero.booksource.extends.MultipleBookSource
 import io.github.edgeatzero.booksource.functions.SearchFunction
 import io.github.edgeatzero.booksource.models.*
+import io.github.edgeatzero.booksource.preferences.PreferenceAction
 import io.github.edgeatzero.booksource.preferences.SelectPreference
 import io.ktor.client.*
 import io.ktor.client.engine.*
@@ -25,7 +27,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.util.*
 
-@ExperimentalSerializationApi
+@OptIn(ExperimentalBookSourceApi::class, ExperimentalSerializationApi::class)
 class DmzjBookSource : MultipleBookSource(), SearchFunction {
     internal companion object {
         private val JSON = Json {
@@ -202,44 +204,74 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
     override val searchCreator by lazy { SearchCreator() }
     override val searchPreferences = listOf(
         SelectPreference(
+            id = KEY_CLASSIFY,
             label = "分类",
             selections = ARRAY_CLASSIFY.keys.toList(),
-            single = true,
-            action = { input, output ->
-                output[KEY_CLASSIFY] = input.singleOrNull()?.let { ARRAY_CLASSIFY[it] } ?: ""
-            }
+            action = PreferenceAction(
+                saver = { input, previous ->
+                    previous.selected?.let { input[KEY_CLASSIFY] = it }
+                    previous
+                },
+                restorer = { input, previous ->
+                    previous.copy(selected = input[KEY_CLASSIFY])
+                }
+            )
         ),
         SelectPreference(
+            id = KEY_STATUS,
             label = "连载状态",
             selections = ARRAY_STATUS.keys.toList(),
-            single = true,
-            action = { input, output ->
-                output[KEY_STATUS] = input.singleOrNull()?.let { ARRAY_STATUS[it] } ?: ""
-            }
+            action = PreferenceAction(
+                saver = { input, previous ->
+                    previous.selected?.let { input[KEY_STATUS] = it }
+                    previous
+                },
+                restorer = { input, previous ->
+                    previous.copy(selected = input[KEY_STATUS])
+                }
+            )
         ),
         SelectPreference(
+            id = KEY_REGION,
             label = "地区",
             selections = ARRAY_REiGON.keys.toList(),
-            single = true,
-            action = { input, output ->
-                output[KEY_REGION] = input.singleOrNull()?.let { ARRAY_REiGON[it] } ?: ""
-            }
+            action = PreferenceAction(
+                saver = { input, previous ->
+                    previous.selected?.let { input[KEY_REGION] = it }
+                    previous
+                },
+                restorer = { input, previous ->
+                    previous.copy(selected = input[KEY_REGION])
+                }
+            )
         ),
         SelectPreference(
+            id = KEY_SORT,
             label = "排序",
             selections = ARRAY_SORT.keys.toList(),
-            single = true,
-            action = { input, output ->
-                output[KEY_SORT] = input.singleOrNull()?.let { ARRAY_SORT[it] } ?: ""
-            }
+            action = PreferenceAction(
+                saver = { input, previous ->
+                    previous.selected?.let { input[KEY_SORT] = it }
+                    previous
+                },
+                restorer = { input, previous ->
+                    previous.copy(selected = input[KEY_SORT])
+                }
+            )
         ),
         SelectPreference(
+            id = KEY_READER,
             label = "读者",
             selections = ARRAY_READER.keys.toList(),
-            single = true,
-            action = { input, output ->
-                output[KEY_READER] = input.singleOrNull()?.let { ARRAY_READER[it] } ?: ""
-            }
+            action = PreferenceAction(
+                saver = { input, previous ->
+                    previous.selected?.let { input[KEY_READER] = it }
+                    previous
+                },
+                restorer = { input, previous ->
+                    previous.copy(selected = input[KEY_CLASSIFY])
+                }
+            )
         )
     )
 
@@ -289,21 +321,23 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
         override fun buildConfig(
             keywords: String?,
             tags: List<TagSearched>?,
-            order: SearchOrder?,
+            sort: SearchSort?,
             author: String?,
             uploader: String?
-        ): Map<String, String> = if (keywords != null) {
-            check(tags == null && order == null && author == null && uploader == null) {
-                "when input keywords, the others will be disable"
+        ): Map<String, String> {
+            require(tags == null && author == null && uploader == null)
+            return when {
+                keywords != null && sort == null -> mapOf(KEY_KEYWORDS to keywords)
+                keywords == null && sort != null -> mapOf(
+                    KEY_SORT to when (sort) {
+                        SSearchSort.Hottest -> "0"
+                        SSearchSort.Newest -> "1"
+                        else -> throw IllegalArgumentException("unsupported for $sort")
+                    }
+                )
+
+                else -> throw IllegalArgumentException("when input keywords, the others will be disable")
             }
-            mapOf(KEY_KEYWORDS to keywords)
-        } else {
-            mapOf(
-                KEY_SORT to when (order) {
-                    SSearchOrder.Hottest -> "0"
-                    else -> "1"
-                }
-            )
         }
 
         override fun setIndex(configs: MutableMap<String, String>, index: Int) {
@@ -320,7 +354,7 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
         override val isAuthorSupported = false
         override val isUploaderSupported = false
         override val isPageIndexSupported = true
-        override val supportedSearchOrders = listOf(SSearchOrder.Hottest, SSearchOrder.Newest)
+        override val supportedSearchSorts = listOf(SSearchSort.Hottest, SSearchSort.Newest)
 
     }
 
