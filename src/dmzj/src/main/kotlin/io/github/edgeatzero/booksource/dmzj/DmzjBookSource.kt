@@ -11,6 +11,8 @@ import io.github.edgeatzero.booksource.exceptions.UnsupportedMethodIndexExceptio
 import io.github.edgeatzero.booksource.extends.MultipleBookSource
 import io.github.edgeatzero.booksource.functions.SearchFunction
 import io.github.edgeatzero.booksource.models.*
+import io.github.edgeatzero.booksource.preferences.MultipleSelectPreference
+import io.github.edgeatzero.booksource.preferences.Preference
 import io.github.edgeatzero.booksource.preferences.PreferenceAction
 import io.github.edgeatzero.booksource.preferences.SelectPreference
 import io.ktor.client.*
@@ -119,6 +121,8 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
         const val API_V4_HOST = "nnv4api.muwai.com"
         const val V3_API_HOST = "v3api.dmzj.com"
         const val SEARCH_HOST = "s.acg.dmzj.com"
+
+        const val CHAR_BAR = "|"
     }
 
     override val maxFetchMethodIndex = 1
@@ -202,18 +206,17 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
     }
 
     override val searchCreator by lazy { SearchCreator() }
-    override val searchPreferences = listOf(
-        SelectPreference(
+    override val searchPreferences = listOf<Preference>(
+        MultipleSelectPreference(
             id = KEY_CLASSIFY,
             label = "分类",
             selections = ARRAY_CLASSIFY.keys.toList(),
             action = PreferenceAction(
                 saver = { input, previous ->
-                    previous.selected?.let { input[KEY_CLASSIFY] = it }
-                    previous
+                    previous.selected?.let { input[KEY_CLASSIFY] = it.joinToString(separator = CHAR_BAR, prefix = CHAR_BAR, postfix = CHAR_BAR) }
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_CLASSIFY])
+                    previous.copy(selected = input[KEY_CLASSIFY]?.split(CHAR_BAR))
                 }
             )
         ),
@@ -224,7 +227,6 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             action = PreferenceAction(
                 saver = { input, previous ->
                     previous.selected?.let { input[KEY_STATUS] = it }
-                    previous
                 },
                 restorer = { input, previous ->
                     previous.copy(selected = input[KEY_STATUS])
@@ -238,7 +240,6 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             action = PreferenceAction(
                 saver = { input, previous ->
                     previous.selected?.let { input[KEY_REGION] = it }
-                    previous
                 },
                 restorer = { input, previous ->
                     previous.copy(selected = input[KEY_REGION])
@@ -252,7 +253,6 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             action = PreferenceAction(
                 saver = { input, previous ->
                     previous.selected?.let { input[KEY_SORT] = it }
-                    previous
                 },
                 restorer = { input, previous ->
                     previous.copy(selected = input[KEY_SORT])
@@ -266,10 +266,9 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction {
             action = PreferenceAction(
                 saver = { input, previous ->
                     previous.selected?.let { input[KEY_READER] = it }
-                    previous
                 },
                 restorer = { input, previous ->
-                    previous.copy(selected = input[KEY_CLASSIFY])
+                    previous.copy(selected = input[KEY_READER])
                 }
             )
         )
