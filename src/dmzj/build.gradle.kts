@@ -11,7 +11,7 @@ dependencies {
     implementation(project(":BookSource-api"))
     implementation("io.ktor:ktor-client-core:2.0.3")
     implementation("io.ktor:ktor-client-logging:2.0.3")
-    implementation("org.jsoup:jsoup:1.14.3")
+    implementation("org.jsoup:jsoup:1.15.2")
     implementation("it.skrape:skrapeit-html-parser:1.2.2")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
