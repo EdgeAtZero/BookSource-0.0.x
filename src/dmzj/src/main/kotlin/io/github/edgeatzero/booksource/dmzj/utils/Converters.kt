@@ -2,9 +2,12 @@
 
 package io.github.edgeatzero.booksource.dmzj.utils
 
+import io.github.edgeatzero.booksource.dmzj.JSON
 import io.github.edgeatzero.booksource.dmzj.models.*
 import io.github.edgeatzero.booksource.models.*
+import io.ktor.client.statement.*
 import kotlinx.datetime.Instant
+import kotlinx.serialization.decodeFromString
 
 internal const val SPLIT_COMMA = ", "
 internal const val SPLIT_SLASH = "/"
@@ -39,6 +42,7 @@ fun parseFetchBook(response: SearchJsonResponseItem): Book = SBook(
     title = response.title,
     authors = response.authors.split(SPLIT_COMMA),
     status = if (response.status.contains(CHAR_FINISHED)) Book.Status.Finished else Book.Status.Ongoing,
+    tags = response.types.split(SPLIT_SLASH).map { STag(it) },
     imageUrl = response.cover,
 )
 
@@ -71,3 +75,11 @@ fun parseFetchChapter(response: FetchJsonResponse): List<Chapter> = response.dat
 fun parseContents(response: ContentsResponse): Contents = response.pageUrl.map {
     Content.Image(url = it)
 }
+
+fun parseSearch(response: String): List<Book> =
+    if (response.contains("g_search_data"))
+        JSON.decodeFromString<SearchValResponse>(response.substringAfter('=').trim().removeSuffix(";"))
+            .map(::parseFetchBook)
+    else
+        JSON.decodeFromString<SearchJsonResponse>(response)
+            .map(::parseFetchBook)

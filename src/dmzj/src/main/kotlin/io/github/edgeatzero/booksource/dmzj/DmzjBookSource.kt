@@ -1,10 +1,7 @@
 package io.github.edgeatzero.booksource.dmzj
 
 import io.github.edgeatzero.booksource.dmzj.models.*
-import io.github.edgeatzero.booksource.dmzj.utils.RSA
-import io.github.edgeatzero.booksource.dmzj.utils.parseContents
-import io.github.edgeatzero.booksource.dmzj.utils.parseFetchBook
-import io.github.edgeatzero.booksource.dmzj.utils.parseFetchChapter
+import io.github.edgeatzero.booksource.dmzj.utils.*
 import io.github.edgeatzero.booksource.exceptions.ParsedException
 import io.github.edgeatzero.booksource.exceptions.UnsupportedMethodIndexException
 import io.github.edgeatzero.booksource.extends.MultipleBookSource
@@ -31,7 +28,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import java.nio.charset.Charset
 import java.util.*
 
-@OptIn(ExperimentalSerializationApi::class)
 class DmzjBookSource : MultipleBookSource(), SearchFunction, LocalizationFunction, LogNested {
     internal companion object {
         const val KEY_KEYWORDS = "keywords"
@@ -199,7 +195,7 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction, LocalizationFunctio
                 }
             }
             .bodyAsText()
-            .let(::searchParse) to null
+            .let(::parseSearch) to null
         else client
             .get {
                 url(scheme = URLProtocol.HTTPS.name, host = V3_API_HOST) {
@@ -221,15 +217,11 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction, LocalizationFunctio
                 }
             }
             .bodyAsText()
-            .let(::searchParse) to null
+            .let(::parseSearch) to config.toMutableMap().also(::setNextIndex)
 
-    private fun searchParse(response: String): List<Book> =
-        if (response.contains("g_search_data"))
-            JSON.decodeFromString<SearchValResponse>(response.substringAfter('=').trim().removeSuffix(";"))
-                .map(::parseFetchBook)
-        else
-            JSON.decodeFromString<SearchJsonResponse>(response)
-                .map(::parseFetchBook)
+    private fun setNextIndex(map: MutableMap<String, String>) {
+        searchCreator.setIndex(map, searchCreator.getIndex(map).coerceAtLeast(0) + 1)
+    }
 
     inner class SearchCreator internal constructor() : SearchFunction.Configurer {
 
@@ -260,13 +252,14 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction, LocalizationFunctio
             }
         }
 
-        override fun setIndex(configs: MutableMap<String, String>, index: Int) {
-            configs[KEY_INDEX] = index.toString()
-        }
+        override fun setIndex(configs: MutableMap<String, String>, index: Int) =
+            configs.set(KEY_INDEX, index.toString())
 
-        override fun getIndex(configs: Map<String, String>): Int = configs[KEY_INDEX]?.toInt() ?: 0
+        override fun getIndex(configs: Map<String, String>): Int =
+            configs[KEY_INDEX]?.toInt() ?: -1
 
-        override fun getLastIndex(configs: Map<String, String>): Int = configs[KEY_LAST_INDEX]?.toInt() ?: 0
+        override fun getLastIndex(configs: Map<String, String>): Int =
+            configs[KEY_LAST_INDEX]?.toInt() ?: -1
 
         override val isKeywordsSupported = true
         override val isTagsSupported = false
