@@ -55,8 +55,8 @@ class DmzjBookSource : MultipleBookSource(), SearchFunction, LocalizationFunctio
     override val id = "dmzj"
     override val lang: Locale = Locale.SIMPLIFIED_CHINESE
     override val supportedLang = arrayOf(Locale.SIMPLIFIED_CHINESE)
-    override val version = 11
-    override val versionName = "beta 0.0.11"
+    override val version = 12
+    override val versionName = "beta 0.0.12"
 
 
     override fun install(engine: HttpClientEngine) {
